@@ -1,0 +1,177 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Unity.Mathematics;
+using UnityEngine;
+
+public class movement : MonoBehaviour
+{
+    // Start is called before the first frame update
+    [SerializeField] LayerMask groundLayer;
+    Rigidbody2D rb;
+    [SerializeField] SpriteRenderer playerColor;
+    [SerializeField] ParticleSystem particles;
+    [SerializeField] ParticleSystem jumpParticles;
+    [SerializeField] ParticleSystem noJumpParticles;
+    [SerializeField] float airFriction = 1;
+    [SerializeField] StatsList stats;
+    bool isgrounded = false;
+    bool spaceIsPressed = false;
+    bool airjump = false;
+    bool firstJump = false;
+    bool charIsJumping = false;
+    float time = Mathf.Infinity;
+    float frictionTime = 1;
+    float speed;
+    int playerJumps = 0;
+    float jumpsRemaining;
+    [SerializeField] Gradient onAirColor;
+    void Start()
+    {
+        rb = GetComponent<Rigidbody2D>();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        print(spaceIsPressed);
+        Vector2 directionInput = new Vector2(0, 0);
+        if (Input.GetKey(KeyCode.D))
+        {
+            directionInput += Vector2.right;          
+        }
+        if (Input.GetKey(KeyCode.A))
+        {
+            directionInput += Vector2.left;
+        }
+        //Friccion aire
+        if (directionInput.x == 0)
+        {
+            rb.velocity = new Vector2(rb.velocity.x * (1 - airFriction * Time.deltaTime), rb.velocity.y);
+            print(rb.velocity);
+
+        }
+        if (rb.velocity.magnitude > 0 || rb.velocity.magnitude <0)
+        if(Input.GetKeyDown(KeyCode.Space))
+        {
+            
+            if (isgrounded == true)
+            {
+               
+                print(playerJumps);
+                //rb.velocity = new Vector2(rb.velocity.x, Stats.jumpForce);(esta en fixed update)
+                time = 0;
+                charIsJumping = true;
+                spaceIsPressed = true;
+            }
+            if (playerJumps >= Stats.maxJumps)
+            {
+                noJumpParticles.Play();
+            }
+                if (isgrounded == false && playerJumps < Stats.maxJumps)
+                {
+                    playerJumps += 1;
+                    print(playerJumps);
+                    //rb.velocity = new Vector2(rb.velocity.x, Stats.jumpForce);
+                    charIsJumping = true;
+                    time = Mathf.Infinity;
+                    jumpsRemaining = (1f * Stats.maxJumps - playerJumps) / Stats.maxJumps;
+                    print(jumpsRemaining);
+                    playerColor.color = onAirColor.Evaluate(jumpsRemaining);
+                    jumpParticles.Play();
+                    airjump = true;
+                }
+                
+        }
+        if (Input.GetKey(KeyCode.Space) && charIsJumping == true && time <= Stats.maxJumpTime)
+        {
+            rb.velocity = new Vector2(rb.velocity.x,Stats.jumpForce);
+            time += Time.deltaTime;
+            firstJump = true;
+            spaceIsPressed = false;
+        }
+
+        //
+
+
+        if (Mathf.Abs(rb.velocity.x) < Stats.maxGroundHorizontalSpeed)
+        {
+            if (isgrounded)
+            {
+                rb.velocity += directionInput.normalized * Stats.GroundAceleration * Time.deltaTime;                       
+            }
+            else
+            {
+                rb.velocity += directionInput.normalized * Stats.airAceleraton * Time.deltaTime;
+            }
+        }
+
+
+
+                isgrounded = Physics2D.Raycast(gameObject.transform.position, Vector2.down, 0.7f, groundLayer);
+        if(isgrounded == true)
+        {
+            //print("si");
+            firstJump = false;
+            playerJumps = 0;
+            playerColor.color = onAirColor.Evaluate(1);
+            rb.gravityScale = 1;
+            airjump = false;
+        }
+       
+        if(rb.velocity.y < stats.specificStat.maxFallSpeed)
+        {
+            rb.velocity = new Vector2(0,stats.specificStat.maxFallSpeed);
+        }
+            
+
+            
+        
+
+
+        //speed = Mathf.Sqrt(rb.velocity.x * rb.velocity.x + rb.velocity.y * rb.velocity.y);
+        speed = rb.velocity.magnitude;
+ 
+        //particulas
+        if (isgrounded == true)
+        {
+            var par = particles.main;
+            par.startLifetime = 1.36f;
+        }
+        if (isgrounded == false)
+        {
+            var par = particles.main;
+            par.startLifetime = 0;
+        }
+        //tema de gravedad
+        if(rb.velocity.y > -stats.specificStat.yVelocityLowGravityThreshold && rb.velocity.y < stats.specificStat.yVelocityLowGravityThreshold && isgrounded == false)
+        {
+            rb.gravityScale = Stats.peackGravity;
+            print("pick");
+        }
+        if(rb.velocity.y < 0)
+        {
+            rb.gravityScale = Stats.fallGravity;
+        }
+        if(rb.velocity.y > 0)
+        {
+            rb.gravityScale = Stats.upGravity;
+        }
+    }
+    void FixedUpdate()
+    {
+        if(spaceIsPressed == true)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, Stats.jumpForce);
+        }
+        //if(airjump == true)
+        //{
+        //    rb.velocity = new Vector2(rb.velocity.x, Stats.jumpForce);
+        //}
+    }
+
+    MovementStats Stats
+    {
+        get => stats.specificStat;
+    }
+}
